@@ -1,4 +1,4 @@
-function []=vad(finwav, fvad, opts, vadThres)
+function []=vad(finwav, fvad, aout, opts, vadThres)
 
 % Usage: vad(finwav, fvad) 
 %        vad(finwav, fvad, opts) 
@@ -18,10 +18,10 @@ function []=vad(finwav, fvad, opts, vadThres)
 %
 % 2017-11-28, Zheng-Hua Tan
 
-if nargin < 2; error('Usage: vad(finwav, fvad)'); end
-if nargin == 2
+if nargin < 3; error('Usage: vad(finwav, fvad)'); end
+if nargin == 3
   opts = 0; vadThres = 0.4; 
-elseif nargin == 3
+elseif nargin == 4
   vadThres = 0.4; 
 end
 
@@ -29,19 +29,30 @@ end
 % [data,fs]=wavread(finwav);
 % [data, fs]=aurora2read(finwav);
 
-chunk_size = 10 * 60 * fs;
-num_chunks = length(all_data) / chunk_size;
+fsh10=fs/100; % 10ms frame shift
 
-all_z = [];
+chunk_size=8 * 60 * fs;
+% cut the data to a multiple of chunk size, trim from the start of the file
+all_data=all_data(mod(length(all_data),chunk_size)+1:end);
+audiowrite(aout,all_data,fs)
+
+% output sizes
+chunk_nfr10=floor(chunk_size/fsh10);
+num_chunks = floor(length(all_data) / chunk_size);
+disp((num_chunks))
+
+% input segmentation
+num_segments=floor((length(all_data)/fsh10));
+all_z = uint8.empty(num_segments,0);
+
 for chunk=1:num_chunks
     data=all_data((chunk-1)*chunk_size+1: chunk*chunk_size);
 
     % Parameter setting
     ENERGYFLOOR = exp(-50);
     flen=floor(fs/40); % 25ms frame length 
-    fsh10=fs/100; % 10ms frame shift
+     
     nfr10=floor((length(data)-(flen-fsh10))/fsh10);
-
     b=[0.9770   -0.9770]; a=[ 1.0000   -0.9540];
     fdata=filter(b,a,data);
 
@@ -84,11 +95,13 @@ for chunk=1:num_chunks
        end
     end
     
-    all_z=[all_z,z'];  
+    all_z((chunk-1)*chunk_nfr10+1: chunk*chunk_nfr10)=[z;z(end);z(end)];
 end
 
 fid=fopen(fvad,'w');
 fprintf(fid, '%d\n',all_z); % 0-1 VAD output
+audiowrite(strcat(fvad,'.wav'),all_z*255,100) % write vad as audio
+
 % fprintf(fid, '%d\n',vad_seg); % segment-label VAD output
 fclose(fid);
 

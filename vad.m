@@ -28,6 +28,7 @@ end
 [data,fs]= audioread(finwav);
 % [data,fs]=wavread(finwav);
 % [data, fs]=aurora2read(finwav);
+disp(size(data))
 
 % Parameter setting
 ENERGYFLOOR = exp(-50);
@@ -39,7 +40,7 @@ b=[0.9770   -0.9770]; a=[ 1.0000   -0.9540];
 fdata=filter(b,a,data);
 
 if opts == 0
-  [pv01, pitch]=pitchestm(data, fs, nfr10);
+  [pv01, pitch]=pitchestm_bkp(data, fs, nfr10);
 else              % using flatness 
   ftThres = 0.5;  % Default threshold. It can range from 0 to 1. Increasing ftThres increases the number of frames being detected as speech.
   [ft]= sflux(data,flen,fsh10);
@@ -76,6 +77,9 @@ else
       error('The number of labeled speech frames does not matched the results of detected speech segments!');
    end
 end
+
+z=[z;z(end);z(end)];
+disp(size(z))
 
 fid=fopen(fvad,'w');
 fprintf(fid, '%d\n',z'); % 0-1 VAD output
